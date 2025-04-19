@@ -54,6 +54,35 @@ npm run start:prod
 
 The application will be available at http://localhost:3000
 
+## Testing and Linting
+
+```bash
+# Run tests
+npm test
+
+# Run tests with coverage
+npm run test:cov
+
+# Run linting
+npm run lint
+```
+
+## Continuous Integration
+
+This project uses GitHub Actions for continuous integration. The CI workflow runs on every push to the main branch and on pull requests targeting the main branch. The workflow includes:
+
+1. Installing dependencies
+2. Running linting checks
+3. Building the application
+4. Running tests
+
+For the workflow to run properly, the following secrets should be set in your GitHub repository:
+
+- `PINECONE_API_KEY`
+- `PINECONE_INDEX_NAME`
+- `PINECONE_ENVIRONMENT`
+- `OPENAI_API_KEY`
+
 ## API Endpoints
 
 ### Health Check
