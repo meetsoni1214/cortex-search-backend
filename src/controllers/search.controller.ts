@@ -5,7 +5,6 @@ import {
   Body,
   BadRequestException,
   Logger,
-  Injectable,
 } from "@nestjs/common";
 import { PineconeService } from "../services/pinecone.service";
 import { Document } from "@langchain/core/documents";
@@ -13,7 +12,6 @@ import { getDummySearchResults } from "../dummy-search-response";
 import { ConfigService } from "@nestjs/config";
 import { OpenAI } from "openai";
 import { exec } from "child_process";
-import * as fs from "fs";
 import * as path from "path";
 import { promisify } from "util";
 
@@ -298,7 +296,7 @@ export class SearchController {
       const copyFilesCmd = `powershell.exe -Command "Copy-Item '${dataCollectionTmpPath}\\*' -Destination '${embeddingDataPath}' -Force"`;
       
       this.logger.log(`Executing copy command: ${copyFilesCmd}`);
-      const copyResult = await execPromise(copyFilesCmd);
+      await execPromise(copyFilesCmd);
       
       // Get file count for reporting (optional)
       const fileCountCmd = `powershell.exe -Command "Get-ChildItem '${dataCollectionTmpPath}' -File | Measure-Object | Select-Object -ExpandProperty Count"`;

@@ -6,7 +6,6 @@ import * as childProcess from 'child_process';
 
 describe('SearchController', () => {
   let controller: SearchController;
-  let pineconeService: PineconeService;
 
   // Create mocks
   const mockPineconeService = {
@@ -34,7 +33,6 @@ describe('SearchController', () => {
     }).compile();
 
     controller = module.get<SearchController>(SearchController);
-    pineconeService = module.get<PineconeService>(PineconeService);
   });
 
   it('should be defined', () => {
@@ -62,20 +60,6 @@ describe('SearchController', () => {
           id: 'doc1',
           score: 0.85,
           pageContent: 'This is test content',
-          metadata: {
-            document_id: 'test-doc-1',
-            file_name: 'test.md',
-            file_type: 'text/markdown',
-          },
-        },
-      ];
-
-      const expectedResults = [
-        {
-          id: 'doc1',
-          score: 0.85,
-          title: 'Test Document Title',
-          content: 'This is test content',
           metadata: {
             document_id: 'test-doc-1',
             file_name: 'test.md',

@@ -2,7 +2,6 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { PineconeService } from '../../src/services/pinecone.service';
 import { ConfigService } from '@nestjs/config';
 import { Document } from '@langchain/core/documents';
-import { Pinecone } from '@pinecone-database/pinecone';
 
 // Mock the OpenAIEmbeddings class
 jest.mock('@langchain/openai', () => ({
@@ -92,10 +91,11 @@ describe('PineconeService', () => {
     });
 
     it('should return empty array when no matches found', async () => {
-      // Mock query to return no matches for this specific test
+      // Get access to the mocked Pinecone index
       const pineconeIndexInstance = (service as any).pinecone.Index();
-      const originalQuery = pineconeIndexInstance.query;
       
+      // Override the query method for this test only
+      const originalQuery = pineconeIndexInstance.query;
       pineconeIndexInstance.query = jest.fn().mockResolvedValueOnce({ matches: [] });
       
       const query = 'no results query';
