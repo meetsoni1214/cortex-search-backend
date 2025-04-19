@@ -43,7 +43,7 @@ export class SearchController {
       // this.logger.log(`Raw results: ${JSON.stringify(rawResults, null, 2)}`);
 
       // Process results
-      return rawResults.map((result) => {
+      const processedResults = rawResults.map((result) => {
         // Get content from appropriate field
         let content = "";
 
@@ -97,6 +97,9 @@ export class SearchController {
           },
         };
       });
+      
+      // Sort results by score in descending order (highest scores first)
+      return processedResults.sort((a, b) => b.score - a.score);
 
       // Remove fallback completely - we want to see real results only
       // this.logger.log('No real results found, using fallback data');
@@ -168,6 +171,7 @@ export class SearchController {
   @Post("demo")
   demoSearch(@Body() body: { query: string; topK?: number }) {
     const { query, topK = 3 } = body;
+    // Get dummy results, already sorted by score in descending order in getDummySearchResults
     return getDummySearchResults(query).slice(0, topK);
   }
 }

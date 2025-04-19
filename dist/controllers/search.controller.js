@@ -31,7 +31,7 @@ let SearchController = SearchController_1 = class SearchController {
         this.logger.log(`Received semantic search request for query: "${query}"`);
         try {
             const rawResults = await this.pineconeService.semanticSearch(query, topK);
-            return rawResults.map((result) => {
+            const processedResults = rawResults.map((result) => {
                 let content = "";
                 if (typeof result.pageContent === "string" && result.pageContent) {
                     content = result.pageContent;
@@ -76,6 +76,7 @@ let SearchController = SearchController_1 = class SearchController {
                     },
                 };
             });
+            return processedResults.sort((a, b) => b.score - a.score);
         }
         catch (error) {
             this.logger.error(`Error in semantic search: ${error.message}`);

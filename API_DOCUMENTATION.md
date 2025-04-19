@@ -87,6 +87,8 @@ Perform a semantic search query against the vector database.
 ]
 ```
 
+Results are sorted by score in descending order, with the most relevant matches appearing first.
+
 | Field        | Type    | Description                                                |
 |--------------|---------|----------------------------------------------------------|
 | id           | string  | Unique identifier for the document                        |
