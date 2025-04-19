@@ -27,13 +27,13 @@ jobs:
       run: npm ci
       
     - name: Lint
-      run: npm run lint
+      run: npx eslint "{src,apps,libs,test}/**/*.ts" --fix
       
     - name: Build
       run: npm run build
       
     - name: Test
-      run: npm test
+      run: npx jest
       env:
         PINECONE_API_KEY: ${{ secrets.PINECONE_API_KEY }}
         PINECONE_INDEX_NAME: ${{ secrets.PINECONE_INDEX_NAME }}
