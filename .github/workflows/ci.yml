@@ -27,7 +27,7 @@ jobs:
       run: npm ci
       
     - name: Lint
-      run: npx eslint "{src,apps,libs,test}/**/*.ts" --fix
+      run: npx eslint@8.57.0 "{src,apps,libs,test}/**/*.ts" --fix
       
     - name: Build
       run: npm run build
