@@ -20,6 +20,9 @@ const documents_1 = require("@langchain/core/documents");
 const dummy_search_response_1 = require("../dummy-search-response");
 const config_1 = require("@nestjs/config");
 const openai_1 = require("openai");
+const child_process_1 = require("child_process");
+const path = require("path");
+const util_1 = require("util");
 let SearchController = SearchController_1 = class SearchController {
     constructor(pineconeService, configService) {
         this.pineconeService = pineconeService;
@@ -174,6 +177,68 @@ let SearchController = SearchController_1 = class SearchController {
         this.logger.log(`Final demo results scores: ${resultsWithTitles.map(r => r.score).join(', ')}`);
         return resultsWithTitles;
     }
+    async processData() {
+        this.logger.log("Starting data processing workflow");
+        try {
+            const execPromise = (0, util_1.promisify)(child_process_1.exec);
+            const dataCollectionPath = "C:\\Users\\DELL\\Desktop\\Incubyte\\data-collection";
+            const dataCollectionTmpPath = path.join(dataCollectionPath, "tmp");
+            const embeddingPath = "C:\\Users\\DELL\\Desktop\\Incubyte\\embedding-and-storage";
+            const embeddingDataPath = path.join(embeddingPath, "data");
+            this.logger.log("Step 1: Running data collection script");
+            const dataCollectionCmd = `powershell.exe -Command "cd '${dataCollectionPath}' ; uv run main.py"`;
+            this.logger.log(`Executing command: ${dataCollectionCmd}`);
+            const dataCollectionResult = await execPromise(dataCollectionCmd);
+            this.logger.log(`Data collection completed: ${dataCollectionResult.stdout}`);
+            if (dataCollectionResult.stderr) {
+                this.logger.warn(`Data collection warnings/errors: ${dataCollectionResult.stderr}`);
+            }
+            this.logger.log("Step 2: Copying files from tmp to embedding data folder");
+            const createDirCmd = `powershell.exe -Command "if (-not (Test-Path '${embeddingDataPath}')) { New-Item -ItemType Directory -Path '${embeddingDataPath}' -Force }"`;
+            await execPromise(createDirCmd);
+            const copyFilesCmd = `powershell.exe -Command "Copy-Item '${dataCollectionTmpPath}\\*' -Destination '${embeddingDataPath}' -Force"`;
+            this.logger.log(`Executing copy command: ${copyFilesCmd}`);
+            const copyResult = await execPromise(copyFilesCmd);
+            const fileCountCmd = `powershell.exe -Command "Get-ChildItem '${dataCollectionTmpPath}' -File | Measure-Object | Select-Object -ExpandProperty Count"`;
+            const fileCountResult = await execPromise(fileCountCmd);
+            const fileCount = fileCountResult.stdout.trim();
+            this.logger.log(`Copied approximately ${fileCount} files`);
+            this.logger.log("Step 3: Running embedding and storage script");
+            const embeddingCmd = `powershell.exe -Command "cd '${embeddingPath}' ; uv run main.py"`;
+            this.logger.log(`Executing command: ${embeddingCmd}`);
+            const embeddingResult = await execPromise(embeddingCmd);
+            this.logger.log(`Embedding completed: ${embeddingResult.stdout}`);
+            if (embeddingResult.stderr) {
+                this.logger.warn(`Embedding warnings/errors: ${embeddingResult.stderr}`);
+            }
+            this.logger.log("Step 4: Cleaning up temporary files");
+            const cleanupEmbeddingDataCmd = `powershell.exe -Command "Remove-Item '${embeddingDataPath}\\*' -Recurse -Force"`;
+            this.logger.log(`Cleaning up embedding data directory: ${cleanupEmbeddingDataCmd}`);
+            await execPromise(cleanupEmbeddingDataCmd);
+            const cleanupTmpCmd = `powershell.exe -Command "if (Test-Path '${dataCollectionTmpPath}') { Remove-Item '${dataCollectionTmpPath}' -Recurse -Force }"`;
+            this.logger.log(`Cleaning up data collection tmp directory: ${cleanupTmpCmd}`);
+            await execPromise(cleanupTmpCmd);
+            this.logger.log("Cleanup completed successfully");
+            return {
+                success: true,
+                message: "Data processing workflow completed successfully",
+                steps: {
+                    dataCollection: "completed",
+                    fileCopy: `Copied ${fileCount} files`,
+                    embedding: "completed",
+                    cleanup: "completed"
+                }
+            };
+        }
+        catch (error) {
+            this.logger.error(`Error in data processing workflow: ${error.message || String(error)}`);
+            return {
+                success: false,
+                error: error.message || String(error),
+                stack: error.stack || "No stack trace available"
+            };
+        }
+    }
 };
 exports.SearchController = SearchController;
 __decorate([
@@ -210,6 +275,12 @@ __decorate([
     __metadata("design:paramtypes", [Object]),
     __metadata("design:returntype", Promise)
 ], SearchController.prototype, "demoSearch", null);
+__decorate([
+    (0, common_1.Post)("process-data"),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", []),
+    __metadata("design:returntype", Promise)
+], SearchController.prototype, "processData", null);
 exports.SearchController = SearchController = SearchController_1 = __decorate([
     (0, common_1.Controller)("search"),
     __metadata("design:paramtypes", [pinecone_service_1.PineconeService,

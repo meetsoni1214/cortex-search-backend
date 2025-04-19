@@ -12,6 +12,10 @@ import { Document } from "@langchain/core/documents";
 import { getDummySearchResults } from "../dummy-search-response";
 import { ConfigService } from "@nestjs/config";
 import { OpenAI } from "openai";
+import { exec } from "child_process";
+import * as fs from "fs";
+import * as path from "path";
+import { promisify } from "util";
 
 interface SearchResult {
   id: string;
@@ -253,5 +257,101 @@ export class SearchController {
     this.logger.log(`Final demo results scores: ${resultsWithTitles.map(r => r.score).join(', ')}`);
     
     return resultsWithTitles;
+  }
+
+  @Post("process-data")
+  async processData() {
+    this.logger.log("Starting data processing workflow");
+
+    try {
+      // Promisify exec for easier async/await usage
+      const execPromise = promisify(exec);
+      
+      // Define paths
+      const dataCollectionPath = "C:\\Users\\DELL\\Desktop\\Incubyte\\data-collection";
+      const dataCollectionTmpPath = path.join(dataCollectionPath, "tmp");
+      const embeddingPath = "C:\\Users\\DELL\\Desktop\\Incubyte\\embedding-and-storage";
+      const embeddingDataPath = path.join(embeddingPath, "data");
+
+      // For WSL to Windows interop, we'll use PowerShell to execute commands
+      this.logger.log("Step 1: Running data collection script");
+      
+      // Command to run Python script in the data collection directory
+      const dataCollectionCmd = `powershell.exe -Command "cd '${dataCollectionPath}' ; uv run main.py"`;
+      this.logger.log(`Executing command: ${dataCollectionCmd}`);
+      
+      const dataCollectionResult = await execPromise(dataCollectionCmd);
+      
+      this.logger.log(`Data collection completed: ${dataCollectionResult.stdout}`);
+      if (dataCollectionResult.stderr) {
+        this.logger.warn(`Data collection warnings/errors: ${dataCollectionResult.stderr}`);
+      }
+
+      // Step 2: Copy files from tmp folder to embedding data folder using PowerShell
+      this.logger.log("Step 2: Copying files from tmp to embedding data folder");
+      
+      // PowerShell command to create the destination directory if it doesn't exist
+      const createDirCmd = `powershell.exe -Command "if (-not (Test-Path '${embeddingDataPath}')) { New-Item -ItemType Directory -Path '${embeddingDataPath}' -Force }"`;
+      await execPromise(createDirCmd);
+      
+      // PowerShell command to copy all files
+      const copyFilesCmd = `powershell.exe -Command "Copy-Item '${dataCollectionTmpPath}\\*' -Destination '${embeddingDataPath}' -Force"`;
+      
+      this.logger.log(`Executing copy command: ${copyFilesCmd}`);
+      const copyResult = await execPromise(copyFilesCmd);
+      
+      // Get file count for reporting (optional)
+      const fileCountCmd = `powershell.exe -Command "Get-ChildItem '${dataCollectionTmpPath}' -File | Measure-Object | Select-Object -ExpandProperty Count"`;
+      const fileCountResult = await execPromise(fileCountCmd);
+      const fileCount = fileCountResult.stdout.trim();
+      
+      this.logger.log(`Copied approximately ${fileCount} files`);
+
+      // Step 3: Go to embedding folder and run the script
+      this.logger.log("Step 3: Running embedding and storage script");
+      
+      const embeddingCmd = `powershell.exe -Command "cd '${embeddingPath}' ; uv run main.py"`;
+      this.logger.log(`Executing command: ${embeddingCmd}`);
+      
+      const embeddingResult = await execPromise(embeddingCmd);
+      
+      this.logger.log(`Embedding completed: ${embeddingResult.stdout}`);
+      if (embeddingResult.stderr) {
+        this.logger.warn(`Embedding warnings/errors: ${embeddingResult.stderr}`);
+      }
+      
+      // Step 4: Cleanup - remove files from the directories
+      this.logger.log("Step 4: Cleaning up temporary files");
+      
+      // Remove files from embedding data directory
+      const cleanupEmbeddingDataCmd = `powershell.exe -Command "Remove-Item '${embeddingDataPath}\\*' -Recurse -Force"`;
+      this.logger.log(`Cleaning up embedding data directory: ${cleanupEmbeddingDataCmd}`);
+      await execPromise(cleanupEmbeddingDataCmd);
+      
+      // Remove files and folder from data collection tmp directory
+      const cleanupTmpCmd = `powershell.exe -Command "if (Test-Path '${dataCollectionTmpPath}') { Remove-Item '${dataCollectionTmpPath}' -Recurse -Force }"`;
+      this.logger.log(`Cleaning up data collection tmp directory: ${cleanupTmpCmd}`);
+      await execPromise(cleanupTmpCmd);
+      
+      this.logger.log("Cleanup completed successfully");
+
+      return {
+        success: true,
+        message: "Data processing workflow completed successfully",
+        steps: {
+          dataCollection: "completed",
+          fileCopy: `Copied ${fileCount} files`,
+          embedding: "completed",
+          cleanup: "completed"
+        }
+      };
+    } catch (error: any) {
+      this.logger.error(`Error in data processing workflow: ${error.message || String(error)}`);
+      return {
+        success: false,
+        error: error.message || String(error),
+        stack: error.stack || "No stack trace available"
+      };
+    }
   }
 }

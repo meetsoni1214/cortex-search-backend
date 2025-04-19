@@ -34,6 +34,54 @@ Check if the API is operational.
 
 ---
 
+### Process Data
+
+Trigger the data processing workflow that collects, processes, and stores data in the vector database.
+
+This endpoint performs the following operations:
+1. Runs the data collection script in `C:\Users\DELL\Desktop\Incubyte\data-collection`
+2. Copies files from `C:\Users\DELL\Desktop\Incubyte\data-collection\tmp` to `C:\Users\DELL\Desktop\Incubyte\embedding-and-storage\data`
+3. Runs the embedding script in `C:\Users\DELL\Desktop\Incubyte\embedding-and-storage`
+4. Cleans up by removing files from both directories
+
+**URL:** `/search/process-data`  
+**Method:** `POST`  
+**Auth required:** No  
+**Content-Type:** `application/json`
+
+#### Success Response
+
+**Code:** `200 OK`  
+**Content example:**
+
+```json
+{
+  "success": true,
+  "message": "Data processing workflow completed successfully",
+  "steps": {
+    "dataCollection": "completed",
+    "fileCopy": "Copied 8 files",
+    "embedding": "completed",
+    "cleanup": "completed"
+  }
+}
+```
+
+#### Error Response
+
+**Code:** `500 INTERNAL SERVER ERROR`  
+**Content example:**
+
+```json
+{
+  "success": false,
+  "error": "Error executing script: Command failed",
+  "stack": "Error stack trace for debugging"
+}
+```
+
+---
+
 ### Semantic Search
 
 Perform a semantic search query against the vector database.

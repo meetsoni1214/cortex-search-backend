@@ -53,5 +53,23 @@ export declare class SearchController {
             topic: string;
         };
     }[]>;
+    processData(): Promise<{
+        success: boolean;
+        message: string;
+        steps: {
+            dataCollection: string;
+            fileCopy: string;
+            embedding: string;
+            cleanup: string;
+        };
+        error?: undefined;
+        stack?: undefined;
+    } | {
+        success: boolean;
+        error: any;
+        stack: any;
+        message?: undefined;
+        steps?: undefined;
+    }>;
 }
 export {};
