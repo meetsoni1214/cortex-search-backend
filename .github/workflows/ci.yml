@@ -35,7 +35,9 @@ jobs:
       run: npm run build
       
     - name: Test
-      run: npx jest
+      run: |
+        npm install --no-save jest@29.7.0 ts-jest@29.3.2 @types/jest
+        npx jest
       env:
         PINECONE_API_KEY: ${{ secrets.PINECONE_API_KEY }}
         PINECONE_INDEX_NAME: ${{ secrets.PINECONE_INDEX_NAME }}
