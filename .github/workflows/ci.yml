@@ -36,7 +36,7 @@ jobs:
       
     - name: Test
       run: |
-        npm install --no-save jest@29.7.0 ts-jest@29.3.2 @types/jest
+        npm install --no-save jest@29.7.0 ts-jest@29.3.2 @types/jest @nestjs/testing @nestjs/common @nestjs/config @langchain/core @langchain/openai openai
         npx jest
       env:
         PINECONE_API_KEY: ${{ secrets.PINECONE_API_KEY }}
