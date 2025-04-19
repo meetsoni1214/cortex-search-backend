@@ -1,14 +1,19 @@
 import { PineconeService } from "../services/pinecone.service";
+import { ConfigService } from "@nestjs/config";
 interface SearchResult {
     id: string;
     score: number;
     content: string;
+    title: string;
     metadata: Record<string, any>;
 }
 export declare class SearchController {
     private readonly pineconeService;
+    private configService;
     private readonly logger;
-    constructor(pineconeService: PineconeService);
+    private openai;
+    constructor(pineconeService: PineconeService, configService: ConfigService);
+    private generateTitle;
     semanticSearch(body: {
         query: string;
         topK?: number;
@@ -36,7 +41,8 @@ export declare class SearchController {
     demoSearch(body: {
         query: string;
         topK?: number;
-    }): {
+    }): Promise<{
+        title: string;
         id: string;
         score: number;
         content: string;
@@ -46,6 +52,6 @@ export declare class SearchController {
             file_type: string;
             topic: string;
         };
-    }[];
+    }[]>;
 }
 export {};

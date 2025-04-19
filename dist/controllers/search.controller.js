@@ -18,10 +18,47 @@ const common_1 = require("@nestjs/common");
 const pinecone_service_1 = require("../services/pinecone.service");
 const documents_1 = require("@langchain/core/documents");
 const dummy_search_response_1 = require("../dummy-search-response");
+const config_1 = require("@nestjs/config");
+const openai_1 = require("openai");
 let SearchController = SearchController_1 = class SearchController {
-    constructor(pineconeService) {
+    constructor(pineconeService, configService) {
         this.pineconeService = pineconeService;
+        this.configService = configService;
         this.logger = new common_1.Logger(SearchController_1.name);
+        this.openai = new openai_1.OpenAI({
+            apiKey: this.configService.get("OPENAI_API_KEY"),
+        });
+    }
+    async generateTitle(content) {
+        try {
+            if (!content || content === "No content available") {
+                return "Untitled Document";
+            }
+            const truncatedContent = content.length > 1000
+                ? content.substring(0, 1000) + "..."
+                : content;
+            const response = await this.openai.chat.completions.create({
+                model: "gpt-3.5-turbo",
+                messages: [
+                    {
+                        role: "system",
+                        content: "You are a helpful assistant that generates concise, descriptive titles for text content. Create a title that is brief (5-7 words maximum) but captures the essence of the content."
+                    },
+                    {
+                        role: "user",
+                        content: `Generate a concise title for this content: "${truncatedContent}"`
+                    }
+                ],
+                max_tokens: 30,
+                temperature: 0.7
+            });
+            const title = response.choices[0]?.message?.content?.trim() || "Untitled Document";
+            return title.replace(/^["']|["']$/g, '');
+        }
+        catch (error) {
+            this.logger.error(`Error generating title: ${error}`);
+            return "Untitled Document";
+        }
     }
     async semanticSearch(body) {
         const { query, topK } = body;
@@ -31,7 +68,7 @@ let SearchController = SearchController_1 = class SearchController {
         this.logger.log(`Received semantic search request for query: "${query}"`);
         try {
             const rawResults = await this.pineconeService.semanticSearch(query, topK);
-            const processedResults = rawResults.map((result) => {
+            const extractedResults = rawResults.map((result) => {
                 let content = "";
                 if (typeof result.pageContent === "string" && result.pageContent) {
                     content = result.pageContent;
@@ -64,7 +101,6 @@ let SearchController = SearchController_1 = class SearchController {
                 if (!content) {
                     this.logger.warn(`No content found for result ${result.id}`);
                 }
-                this.logger.log(`results: ${JSON.stringify(result, null, 2)}`);
                 return {
                     id: result.id,
                     score: Math.abs(result.score || 0),
@@ -76,7 +112,16 @@ let SearchController = SearchController_1 = class SearchController {
                     },
                 };
             });
-            return processedResults.sort((a, b) => b.score - a.score);
+            const sortedResults = extractedResults.sort((a, b) => b.score - a.score);
+            const resultsWithTitles = await Promise.all(sortedResults.map(async (result) => {
+                const title = await this.generateTitle(result.content);
+                return {
+                    ...result,
+                    title,
+                };
+            }));
+            this.logger.log(`Final results scores: ${resultsWithTitles.map(r => r.score).join(', ')}`);
+            return resultsWithTitles;
         }
         catch (error) {
             this.logger.error(`Error in semantic search: ${error.message}`);
@@ -85,6 +130,7 @@ let SearchController = SearchController_1 = class SearchController {
                 {
                     id: "error",
                     score: 0,
+                    title: "Error Occurred",
                     content: `Error occurred: ${error.message}`,
                     metadata: {
                         error: error.message,
@@ -115,9 +161,18 @@ let SearchController = SearchController_1 = class SearchController {
     healthCheck() {
         return { status: "ok", message: "Semantic search API is operational" };
     }
-    demoSearch(body) {
+    async demoSearch(body) {
         const { query, topK = 3 } = body;
-        return (0, dummy_search_response_1.getDummySearchResults)(query).slice(0, topK);
+        const results = (0, dummy_search_response_1.getDummySearchResults)(query).slice(0, topK);
+        const resultsWithTitles = await Promise.all(results.map(async (result) => {
+            const title = await this.generateTitle(result.content);
+            return {
+                ...result,
+                title,
+            };
+        }));
+        this.logger.log(`Final demo results scores: ${resultsWithTitles.map(r => r.score).join(', ')}`);
+        return resultsWithTitles;
     }
 };
 exports.SearchController = SearchController;
@@ -153,10 +208,11 @@ __decorate([
     __param(0, (0, common_1.Body)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [Object]),
-    __metadata("design:returntype", void 0)
+    __metadata("design:returntype", Promise)
 ], SearchController.prototype, "demoSearch", null);
 exports.SearchController = SearchController = SearchController_1 = __decorate([
     (0, common_1.Controller)("search"),
-    __metadata("design:paramtypes", [pinecone_service_1.PineconeService])
+    __metadata("design:paramtypes", [pinecone_service_1.PineconeService,
+        config_1.ConfigService])
 ], SearchController);
 //# sourceMappingURL=search.controller.js.map

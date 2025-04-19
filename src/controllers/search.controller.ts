@@ -5,23 +5,72 @@ import {
   Body,
   BadRequestException,
   Logger,
+  Injectable,
 } from "@nestjs/common";
 import { PineconeService } from "../services/pinecone.service";
 import { Document } from "@langchain/core/documents";
 import { getDummySearchResults } from "../dummy-search-response";
+import { ConfigService } from "@nestjs/config";
+import { OpenAI } from "openai";
 
 interface SearchResult {
   id: string;
   score: number;
   content: string;
+  title: string;
   metadata: Record<string, any>;
 }
 
 @Controller("search")
 export class SearchController {
   private readonly logger = new Logger(SearchController.name);
+  private openai: OpenAI;
 
-  constructor(private readonly pineconeService: PineconeService) {}
+  constructor(
+    private readonly pineconeService: PineconeService,
+    private configService: ConfigService
+  ) {
+    // Initialize OpenAI client
+    this.openai = new OpenAI({
+      apiKey: this.configService.get<string>("OPENAI_API_KEY"),
+    });
+  }
+  
+  private async generateTitle(content: string): Promise<string> {
+    try {
+      // Ensure we have content to work with
+      if (!content || content === "No content available") {
+        return "Untitled Document";
+      }
+      
+      // Truncate content if it's too long
+      const truncatedContent = content.length > 1000 
+        ? content.substring(0, 1000) + "..." 
+        : content;
+        
+      const response = await this.openai.chat.completions.create({
+        model: "gpt-3.5-turbo",
+        messages: [
+          {
+            role: "system",
+            content: "You are a helpful assistant that generates concise, descriptive titles for text content. Create a title that is brief (5-7 words maximum) but captures the essence of the content."
+          },
+          {
+            role: "user",
+            content: `Generate a concise title for this content: "${truncatedContent}"`
+          }
+        ],
+        max_tokens: 30,
+        temperature: 0.7
+      });
+      
+      const title = response.choices[0]?.message?.content?.trim() || "Untitled Document";
+      return title.replace(/^["']|["']$/g, ''); // Remove quotes if present
+    } catch (error) {
+      this.logger.error(`Error generating title: ${error}`);
+      return "Untitled Document";
+    }
+  }
 
   @Post("semantic")
   async semanticSearch(
@@ -42,8 +91,8 @@ export class SearchController {
       // Debug raw results
       // this.logger.log(`Raw results: ${JSON.stringify(rawResults, null, 2)}`);
 
-      // Process results
-      const processedResults = rawResults.map((result) => {
+      // Extract content from each result
+      const extractedResults = rawResults.map((result) => {
         // Get content from appropriate field
         let content = "";
 
@@ -83,8 +132,6 @@ export class SearchController {
           this.logger.warn(`No content found for result ${result.id}`);
         }
 
-        this.logger.log(`results: ${JSON.stringify(result, null, 2)}`);
-
         return {
           id: result.id,
           score: Math.abs(result.score || 0),
@@ -99,7 +146,23 @@ export class SearchController {
       });
       
       // Sort results by score in descending order (highest scores first)
-      return processedResults.sort((a, b) => b.score - a.score);
+      const sortedResults = extractedResults.sort((a, b) => b.score - a.score);
+      
+      // Generate titles for each result
+      const resultsWithTitles = await Promise.all(
+        sortedResults.map(async (result) => {
+          const title = await this.generateTitle(result.content);
+          return {
+            ...result,
+            title,
+          };
+        })
+      );
+      
+      // Log the scores of the final results array
+      this.logger.log(`Final results scores: ${resultsWithTitles.map(r => r.score).join(', ')}`);
+      
+      return resultsWithTitles;
 
       // Remove fallback completely - we want to see real results only
       // this.logger.log('No real results found, using fallback data');
@@ -115,6 +178,7 @@ export class SearchController {
         {
           id: "error",
           score: 0,
+          title: "Error Occurred",
           content: `Error occurred: ${(error as Error).message}`,
           metadata: {
             error: (error as Error).message,
@@ -169,9 +233,25 @@ export class SearchController {
   }
 
   @Post("demo")
-  demoSearch(@Body() body: { query: string; topK?: number }) {
+  async demoSearch(@Body() body: { query: string; topK?: number }) {
     const { query, topK = 3 } = body;
     // Get dummy results, already sorted by score in descending order in getDummySearchResults
-    return getDummySearchResults(query).slice(0, topK);
+    const results = getDummySearchResults(query).slice(0, topK);
+    
+    // Generate titles for demo results
+    const resultsWithTitles = await Promise.all(
+      results.map(async (result) => {
+        const title = await this.generateTitle(result.content);
+        return {
+          ...result,
+          title,
+        };
+      })
+    );
+    
+    // Log the scores of the final demo results array
+    this.logger.log(`Final demo results scores: ${resultsWithTitles.map(r => r.score).join(', ')}`);
+    
+    return resultsWithTitles;
   }
 }

@@ -67,6 +67,7 @@ Perform a semantic search query against the vector database.
   {
     "id": "doc2",
     "score": 0.853,
+    "title": "Pinecone Vector Database Overview",
     "content": "Pinecone is a vector database that makes it easy to build high-performance vector search applications.",
     "metadata": {
       "document_id": "pinecone-doc-1",
@@ -77,6 +78,7 @@ Perform a semantic search query against the vector database.
   {
     "id": "doc1",
     "score": 0.675,
+    "title": "NestJS Framework Introduction",
     "content": "NestJS is a progressive Node.js framework for building efficient and scalable server-side applications.",
     "metadata": {
       "document_id": "nestjs-doc-1",
@@ -93,6 +95,7 @@ Results are sorted by score in descending order, with the most relevant matches 
 |--------------|---------|----------------------------------------------------------|
 | id           | string  | Unique identifier for the document                        |
 | score        | number  | Similarity score (higher is more relevant, range 0-1)     |
+| title        | string  | AI-generated title summarizing the document content       |
 | content      | string  | The content of the document                              |
 | metadata     | object  | Additional metadata associated with the document         |
 
@@ -411,6 +414,7 @@ function SearchComponent() {
           <ul>
             {results.map((result) => (
               <li key={result.id}>
+                <h4 className="title">{result.title}</h4>
                 <div className="score">Score: {result.score.toFixed(4)}</div>
                 <div className="content">{result.content}</div>
                 <div className="metadata">
